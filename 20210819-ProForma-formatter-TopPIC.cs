@@ -110,7 +110,8 @@ namespace ProFormaFormatter {
 		    float ObsMass;
 		    PTM ThesePTMs = new PTM();
 		    // THIS CODE ASSOCIATES EACH PTM WITH THE LAST SEQUENCE LETTER IN THE RANGE TO WHICH IT MIGHT BE ATTACHED; LOCALIZATION INFORMATION IS DESTROYED HERE.
-		    foreach (string sElement in Seq.Split('(',')','[',']')) {
+		    // Note that TopMG results frequently include multiple PTMs in the same ambiguous sequence range; all PTMs for that range are attributed to the last residue in it.
+		    foreach (string sElement in Seq.Split('(',')','[',']',';')) {
 			if (sElement == "Methyl") {
 			    OutMassAdded += 14;
 			    ThesePTMs.InsertSorted(OutSeqBuilder.Length,sElement);

@@ -41,7 +41,17 @@ namespace ProFormaFormatter {
 	static void Main(string[] args) {
 	    if (args.Length==0) {
 		Console.WriteLine("Supply the name of the exported *_PrSMs.txt file for processing.");
+		Console.WriteLine("If you would like to restrict to medium or high PrSMs, append --medium or --high to the command line.");
 		Environment.Exit(1);
+	    }
+	    float MinNegLogEVal = -700;
+	    if (args.Length==2) {
+		if (args[1] == "--high") {
+		    MinNegLogEVal = 5;
+		}
+		else if (args[1] == "--medium") {
+		    MinNegLogEVal = 2;
+		}
 	    }
 	    DataTable datatable = new DataTable();
 	    string FileString = args[0];
@@ -163,6 +173,11 @@ namespace ProFormaFormatter {
 			    UniModName="NMyrGly";
 			    OutMassAdded += 210;
 			}
+			else if (PTMName=="L-isoglutamyl-polyglutamic acid") {
+			    // UniProt didn't specify how many Glus!
+			    UniModName="GluGlu";
+			    OutMassAdded += 258;
+			}
 			else Console.Error.WriteLine("I don't recognize this PTM: " + PTMName + "\nPos String=" + PosString);
 			int Pos = Convert.ToInt32(PosString);
 			// Add to the sorted linked list of PTMs for this row of file
@@ -194,22 +209,24 @@ namespace ProFormaFormatter {
 		string OutProForma = Convert.ToString(DecoratedSeq);
 		ThesePTMs.Next=null;
 		// To make the number of rows of output equal to the number of PrSMs, we will need to write some rows repeatedly.
-		foreach (string OutScan in ScanNumbers) {
-		    Console.Write(OutFile);
-		    Console.Write("\t");
-		    Console.Write(OutScan);
-		    Console.Write("\t");
-		    Console.Write(OutCharge);
-		    Console.Write("\t");
-		    Console.Write(OutAccession);
-		    Console.Write("\t");
-		    Console.Write(OutSeq);
-		    Console.Write("\t");
-		    Console.Write(OutMassAdded);
-		    Console.Write("\t");
-		    Console.Write(OutProForma);
-		    Console.Write("\t");
-		    Console.WriteLine(OutEVal);
+		if (Convert.ToSingle(OutEVal)>= MinNegLogEVal) {
+		    foreach (string OutScan in ScanNumbers) {
+			Console.Write(OutFile);
+			Console.Write("\t");
+			Console.Write(OutScan);
+			Console.Write("\t");
+			Console.Write(OutCharge);
+			Console.Write("\t");
+			Console.Write(OutAccession);
+			Console.Write("\t");
+			Console.Write(OutSeq);
+			Console.Write("\t");
+			Console.Write(OutMassAdded);
+			Console.Write("\t");
+			Console.Write(OutProForma);
+			Console.Write("\t");
+			Console.WriteLine(OutEVal);
+		    }
 		}
 	    }
 	}
