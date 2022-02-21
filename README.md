@@ -10,6 +10,7 @@ Each of these .cs files represents a separate tool for converting the outputs of
 6) Integer sum of rounded PTM masses
 7) ProForma string representing sequence and PTMs
 8) Negative log E-Value for PrSM
+
 At present, these headers do not appear in the output of the tools so that one can append these tables across multiple output files.
 
 The MSPathFinderT tool reads an individual "IcTarget.tsv" files, expecting that users will have a different output for each input raw file.  Correspondingly, one would likely run 20210819-ProForma-formatter-MSPT on the first output file with "> MSPT.tsv" to redirect output from the tool into a text file by that name.  On the remaining outputs, one would probably use ">> MSPT.tsv" to append the result to that started on the first file.  MSPathFinderT is also unique among the search engines that its output PrSMs will be unfiltered; the script itself imposes two thresholds, one to require expectation values below 0.01 for each PrSM and another to require probability scores above 0.5 for each PrSM.
