@@ -123,11 +123,11 @@ namespace ProFormaFormatter {
 			    UniModName="PyrGlu(Glu)";
 			    OutMassAdded += -18;
 			}
-			else if (PTMName=="N6-mureinyl-L-lysine" || PTMName=="L-arginine amide" || PTMName=="L-proline amide") {
+			else if (PTMName=="N6-mureinyl-L-lysine" || PTMName=="L-arginine amide" || PTMName=="L-proline amide" || PTMName=="half cystine") {
 			    UniModName="Dehydro";
 			    OutMassAdded += -1;
 			}
-			else if (PTMName=="N6-methyl-L-lysine" || PTMName=="N-methyl-L-alanine" || PTMName=="N-methyl-L-methionine") {
+			else if (PTMName=="N6-methyl-L-lysine" || PTMName=="N-methyl-L-alanine" || PTMName=="N-methyl-L-methionine" || PTMName=="L-cysteine methyl ester" || PTMName=="omega-N-methyl-L-arginine") {
 			    UniModName="Methyl";
 			    OutMassAdded += 14;
 			}
