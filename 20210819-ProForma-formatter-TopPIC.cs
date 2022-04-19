@@ -112,17 +112,22 @@ namespace ProFormaFormatter {
 		    // THIS CODE ASSOCIATES EACH PTM WITH THE LAST SEQUENCE LETTER IN THE RANGE TO WHICH IT MIGHT BE ATTACHED; LOCALIZATION INFORMATION IS DESTROYED HERE.
 		    // Note that TopMG results frequently include multiple PTMs in the same ambiguous sequence range; all PTMs for that range are attributed to the last residue in it.
 		    foreach (string sElement in Seq.Split('(',')','[',']',';')) {
-			if (sElement == "Methyl") {
-			    OutMassAdded += 14;
+			if (sElement == "Xlink:Disulfide") {
+			    OutMassAdded -= 2;
 			    ThesePTMs.InsertSorted(OutSeqBuilder.Length,sElement);
 			}
-			else if (sElement == "Acetyl") {
-			    OutMassAdded += 42;
-			    ThesePTMs.InsertSorted(0,sElement);
+			else if (sElement == "Methyl") {
+			    OutMassAdded += 14;
+			    ThesePTMs.InsertSorted(OutSeqBuilder.Length,sElement);
 			}
 			else if (sElement == "Oxidation") {
 			    OutMassAdded += 16;
 			    ThesePTMs.InsertSorted(OutSeqBuilder.Length,sElement);
+			}
+			else if (sElement == "Acetyl") {
+			    OutMassAdded += 42;
+			    // We force N-terminal acetyls to the N-terminus rather than the first side chain
+			    ThesePTMs.InsertSorted(0,sElement);
 			}
 			else if (sElement == "Phospho") {
 			    OutMassAdded += 80;
