@@ -5,6 +5,88 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ProFormaFormatter {
+
+    class PSImod {
+	public string EntryName="";
+	public string OutputName="";
+	public int    RoundedMass=0;
+	public PSImod Next=null;
+
+	public void PrintAll() {
+	    PSImod Runner = this.Next;
+	    Console.WriteLine("PrintAll");
+	    while (Runner != null) {
+		Console.Write(Runner.EntryName);
+		Console.Write("\t");
+		Console.Write(Runner.OutputName);
+		Console.Write("\t");
+		Console.WriteLine(Runner.RoundedMass);
+		Runner = Runner.Next;
+	    }
+	}
+
+	public PSImod FindByString(string Key) {
+	    PSImod       TailRunner = this.Next;
+	    while (TailRunner != null) {
+		if (string.Equals(TailRunner.EntryName,Key)) {
+			return TailRunner;
+		    }
+		TailRunner = TailRunner.Next;
+	    }
+	    return null;
+	}
+	
+	public void LoadFromFile() {
+	    PSImod       TailRunner = this;
+	    StreamReader SRead = new StreamReader("PSI-MOD.obo.txt");
+	    string       WholeLine;
+	    string[]     Chunks;
+	    float        Mass;
+	    while (SRead.Peek() > 0) {
+		WholeLine = SRead.ReadLine();
+		if (WholeLine.StartsWith("id:")) {
+		    TailRunner.Next = new PSImod();
+		    TailRunner = TailRunner.Next;
+		}
+		else {
+		    if (WholeLine.StartsWith("name:")) {
+			TailRunner.EntryName = WholeLine.Substring(6);
+		    }
+		    else {
+			if (WholeLine.StartsWith("synonym:") && WholeLine.EndsWith("RELATED PSI-MS-label []")) {
+			    Chunks = WholeLine.Split('\"');
+			    TailRunner.OutputName = Chunks[1];
+			}
+			else {
+			    if (WholeLine.StartsWith("xref: DiffMono:")) {
+				Chunks = WholeLine.Split('\"');
+				if (Chunks[1] != "none") {
+				    Mass = Convert.ToSingle(Chunks[1]);
+				    TailRunner.RoundedMass = (int)Math.Round(Mass);
+				}
+			    }
+			}
+		    }
+		}
+	    }
+	}
+
+	public void FillEmptyOutputNames() {
+	    PSImod TailRunner=this.Next;
+	    while (TailRunner != null) {
+		if (TailRunner.OutputName.Length == 0) {
+		    // I am unsure why, but the PSI-MS name "Acetyl" isn't connected with the term below.
+		    if (TailRunner.EntryName == "alpha-amino acetylated residue") {
+			TailRunner.OutputName = "Acetyl";
+		    }
+		    else {
+			TailRunner.OutputName = "M: " + TailRunner.EntryName;
+		    }
+		}
+		TailRunner = TailRunner.Next;
+	    }
+	}
+    }
     
     class PTM {
 	public int Position=0;
@@ -40,6 +122,7 @@ namespace ProFormaFormatter {
     class Program {
 	static void Main(string[] args) {
 	    if (args.Length==0) {
+		Console.WriteLine("Please be sure that this directory contains a copy of PSI-MOD.obo.txt from https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo.");
 		Console.WriteLine("Supply the name of the exported *_PrSMs.txt file for processing.");
 		Console.WriteLine("If you would like to restrict to medium or high PrSMs, append --medium or --high to the command line.");
 		Environment.Exit(1);
@@ -54,6 +137,10 @@ namespace ProFormaFormatter {
 		}
 	    }
 	    DataTable datatable = new DataTable();
+	    PSImod PSIModTable = new PSImod();
+	    PSImod ThisPSIMod;
+	    PSIModTable.LoadFromFile();
+	    PSIModTable.FillEmptyOutputNames();
 	    string FileString = args[0];
 	    StreamReader streamreader = new StreamReader(FileString);
 	    string FNameTrailer = ".raw";
@@ -111,74 +198,20 @@ namespace ProFormaFormatter {
 			string PosString = Regex.Replace(PTMFields[0], "[^0-9]","");
 			string PTMName = PTMFields[1].Split(')')[0];
 			string UniModName = "default";
-			// This approach is obviously terrible, but I didn't want to build in a PSI-Mod reader since I just needed these.
 			// For translating ProSight PD PTM names to masses, you will want https://raw.githubusercontent.com/HUPO-PSI/psi-mod-CV/master/PSI-MOD.obo.
-			// I am rounding DiffMono values and prefering PSI-MOD labels (though the variable is called "UniModName").
-			if (PTMName=="L-gamma-carboxyglutamic acid") {
-			    UniModName="d4CbxGlu";
-			    OutMassAdded += -44;
+			// I am rounding DiffMono values and prefering PSI-MS labels (though the variable is called "UniModName").
+			ThisPSIMod = PSIModTable.FindByString(PTMName);
+			if (ThisPSIMod == null) {
+			    Console.WriteLine("Your PSI-MOD.obo.txt does not contain this PTM: ");
+			    Console.WriteLine(PTMName);
+			    Environment.Exit(1);
 			}
-			else if (PTMName=="2-pyrrolidone-5-carboxylic acid ") {
-			    // Yes, we needed that extra space on the PTM name above; my parser omits the trailer "(Gln)".
-			    UniModName="PyrGlu(Glu)";
-			    OutMassAdded += -18;
-			}
-			else if (PTMName=="N6-mureinyl-L-lysine" || PTMName=="L-arginine amide" || PTMName=="L-proline amide" || PTMName=="half cystine") {
-			    UniModName="Dehydro";
-			    OutMassAdded += -1;
-			}
-			else if (PTMName=="N6-methyl-L-lysine" || PTMName=="N-methyl-L-alanine" || PTMName=="N-methyl-L-methionine" || PTMName=="L-cysteine methyl ester" || PTMName=="omega-N-methyl-L-arginine") {
-			    UniModName="Methyl";
-			    OutMassAdded += 14;
-			}
-			else if (PTMName=="L-methionine sulfoxide") {
-			    UniModName="Oxidation";
-			    OutMassAdded += 16;
-			}
-			else if (PTMName=="S-nitrosyl-L-cysteine") {
-			    UniModName="Nitrosyl";
-			    OutMassAdded += 29;
-			}
-			else if (PTMName=="alpha-amino acetylated residue") {
-			    UniModName="Acetyl";
-			    OutMassAdded += 42;
-			    //Force the modification to the N-terminus
+			UniModName =    ThisPSIMod.OutputName;
+			OutMassAdded += ThisPSIMod.RoundedMass;
+			// When acetylation is positioned on the first side chain, move it to the N-term instead.
+			if (PTMName=="alpha-amino acetylated residue" && PosString == "1") {
 			    PosString = "0";
 			}
-			else if (PTMName=="N6-acetyl-L-lysine") {
-			    UniModName="Acetyl";
-			    OutMassAdded += 42;
-			}
-			else if (PTMName=="N6,N6,N6-trimethyl-L-lysine" || PTMName=="N,N,N-trimethyl-L-alanine") {
-			    UniModName="Trimethyl";
-			    OutMassAdded += 42;
-			}
-			else if (PTMName=="L-beta-methylthioaspartic acid") {
-			    UniModName="Methylthio";
-			    OutMassAdded += 46;
-			}
-			else if (PTMName=="iodoacetamide - site C") {
-			    UniModName="Carbamidomethyl";
-			    OutMassAdded += 57;
-			}
-			else if (PTMName=="S-phospho-L-cysteine" || PTMName=="O-phospho-L-serine" || PTMName=="O-phospho-L-threonine" || PTMName=="O4'-phospho-L-tyrosine") {
-			    UniModName="Phospho";
-			    OutMassAdded += 80;
-			}
-			else if (PTMName=="N6-succinyl-L-lysine") {
-			    UniModName="N6-succinyl-L-lysine";
-			    OutMassAdded += 100;
-			}
-			else if (PTMName=="N-myristoylglycine") {
-			    UniModName="NMyrGly";
-			    OutMassAdded += 210;
-			}
-			else if (PTMName=="L-isoglutamyl-polyglutamic acid") {
-			    // UniProt didn't specify how many Glus!
-			    UniModName="GluGlu";
-			    OutMassAdded += 258;
-			}
-			else Console.Error.WriteLine("I don't recognize this PTM: " + PTMName + "\nPos String=" + PosString);
 			int Pos = Convert.ToInt32(PosString);
 			// Add to the sorted linked list of PTMs for this row of file
 			ThesePTMs.InsertSorted(Pos,UniModName);
