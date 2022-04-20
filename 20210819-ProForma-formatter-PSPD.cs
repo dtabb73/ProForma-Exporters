@@ -7,16 +7,19 @@ using System.Text.RegularExpressions;
 namespace ProFormaFormatter {
 
     class PSImod {
-	public string EntryName="";
+	public string PSImodName="";
+	public string UniProtName="";
 	public string OutputName="";
 	public int    RoundedMass=0;
 	public PSImod Next=null;
 
 	public void PrintAll() {
 	    PSImod Runner = this.Next;
-	    Console.WriteLine("PrintAll");
+	    Console.WriteLine("PSImodName\tUniProtName\tOutputName\tRoundedMass");
 	    while (Runner != null) {
-		Console.Write(Runner.EntryName);
+		Console.Write(Runner.PSImodName);
+		Console.Write("\t");
+		Console.Write(Runner.UniProtName);
 		Console.Write("\t");
 		Console.Write(Runner.OutputName);
 		Console.Write("\t");
@@ -28,7 +31,7 @@ namespace ProFormaFormatter {
 	public PSImod FindByString(string Key) {
 	    PSImod       TailRunner = this.Next;
 	    while (TailRunner != null) {
-		if (string.Equals(TailRunner.EntryName,Key)) {
+		if (string.Equals(TailRunner.UniProtName,Key) || string.Equals(TailRunner.PSImodName,Key)) {
 			return TailRunner;
 		    }
 		TailRunner = TailRunner.Next;
@@ -42,30 +45,33 @@ namespace ProFormaFormatter {
 	    string       WholeLine;
 	    string[]     Chunks;
 	    float        Mass;
+	    int          FirstSpace;
 	    while (SRead.Peek() > 0) {
 		WholeLine = SRead.ReadLine();
 		if (WholeLine.StartsWith("id:")) {
 		    TailRunner.Next = new PSImod();
 		    TailRunner = TailRunner.Next;
 		}
-		else {
-		    if (WholeLine.StartsWith("name:")) {
-			TailRunner.EntryName = WholeLine.Substring(6);
+		else if (WholeLine.StartsWith("name:")) {
+			TailRunner.PSImodName = WholeLine.Substring(6);
 		    }
-		    else {
-			if (WholeLine.StartsWith("synonym:") && WholeLine.EndsWith("RELATED PSI-MS-label []")) {
-			    Chunks = WholeLine.Split('\"');
-			    TailRunner.OutputName = Chunks[1];
-			}
-			else {
-			    if (WholeLine.StartsWith("xref: DiffMono:")) {
-				Chunks = WholeLine.Split('\"');
-				if (Chunks[1] != "none") {
-				    Mass = Convert.ToSingle(Chunks[1]);
-				    TailRunner.RoundedMass = (int)Math.Round(Mass);
-				}
-			    }
-			}
+		else if (WholeLine.StartsWith("synonym:")) {
+		    if (WholeLine.EndsWith("RELATED PSI-MS-label []")) {
+			Chunks = WholeLine.Split('\"');
+			TailRunner.OutputName = Chunks[1];
+		    }
+		    else if (WholeLine.EndsWith("EXACT UniProt-feature []")) {
+			Chunks = WholeLine.Split('\"');
+			FirstSpace = Chunks[1].IndexOf(' ')+1;
+			//We would really rather keep only those starting with MOD_RES, no?
+			TailRunner.UniProtName = Chunks[1].Substring(FirstSpace);
+		    }
+		}
+		else if (WholeLine.StartsWith("xref: DiffMono:")) {
+		    Chunks = WholeLine.Split('\"');
+		    if (Chunks[1] != "none") {
+			Mass = Convert.ToSingle(Chunks[1]);
+			TailRunner.RoundedMass = (int)Math.Round(Mass);
 		    }
 		}
 	    }
@@ -76,11 +82,11 @@ namespace ProFormaFormatter {
 	    while (TailRunner != null) {
 		if (TailRunner.OutputName.Length == 0) {
 		    // I am unsure why, but the PSI-MS name "Acetyl" isn't connected with the term below.
-		    if (TailRunner.EntryName == "alpha-amino acetylated residue") {
+		    if (TailRunner.PSImodName == "alpha-amino acetylated residue") {
 			TailRunner.OutputName = "Acetyl";
 		    }
 		    else {
-			TailRunner.OutputName = "M: " + TailRunner.EntryName;
+			TailRunner.OutputName = "M:" + TailRunner.PSImodName;
 		    }
 		}
 		TailRunner = TailRunner.Next;
@@ -122,9 +128,9 @@ namespace ProFormaFormatter {
     class Program {
 	static void Main(string[] args) {
 	    if (args.Length==0) {
-		Console.WriteLine("Please be sure that this directory contains a copy of PSI-MOD.obo.txt from https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo.");
-		Console.WriteLine("Supply the name of the exported *_PrSMs.txt file for processing.");
-		Console.WriteLine("If you would like to restrict to medium or high PrSMs, append --medium or --high to the command line.");
+		Console.Error.WriteLine("Please be sure that this directory contains a copy of PSI-MOD.obo.txt from https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo.");
+		Console.Error.WriteLine("Supply the name of the exported *_PrSMs.txt file for processing.");
+		Console.Error.WriteLine("If you would like to restrict to medium or high PrSMs, append --medium or --high to the command line.");
 		Environment.Exit(1);
 	    }
 	    float MinNegLogEVal = -700;
@@ -196,14 +202,16 @@ namespace ProFormaFormatter {
 		    if (ThisPTM.Length > 0) {
 			string[] PTMFields = ThisPTM.Split('(');
 			string PosString = Regex.Replace(PTMFields[0], "[^0-9]","");
-			string PTMName = PTMFields[1].Split(')')[0];
+			int FirstLeft = ThisPTM.IndexOf('(')+1;
+			int LastRight = ThisPTM.LastIndexOf(')');
+			string PTMName = ThisPTM.Substring(FirstLeft, LastRight-FirstLeft);
 			string UniModName = "default";
 			// For translating ProSight PD PTM names to masses, you will want https://raw.githubusercontent.com/HUPO-PSI/psi-mod-CV/master/PSI-MOD.obo.
 			// I am rounding DiffMono values and prefering PSI-MS labels (though the variable is called "UniModName").
 			ThisPSIMod = PSIModTable.FindByString(PTMName);
 			if (ThisPSIMod == null) {
-			    Console.WriteLine("Your PSI-MOD.obo.txt does not contain this PTM: ");
-			    Console.WriteLine(PTMName);
+			    Console.Error.WriteLine("Your PSI-MOD.obo.txt does not contain this PTM: ");
+			    Console.Error.WriteLine(PTMName);
 			    Environment.Exit(1);
 			}
 			UniModName =    ThisPSIMod.OutputName;
