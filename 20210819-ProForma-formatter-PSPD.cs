@@ -175,7 +175,14 @@ namespace ProFormaFormatter {
 		string OutEVal = Convert.ToString(row["\"-Log E-Value\""]);
 		//Since we need the next field as a number, we need to strip away its double-quotes.
 		string FScans = Convert.ToString(row["\"# Fragmentation Scans\""]);
-		int FragScans = Convert.ToInt32(FScans.Split('\"')[1]);
+		try {
+		    int FragScans = Convert.ToInt32(FScans.Split('\"')[1]);
+		}
+		catch (FormatException e) {
+		    Console.Error.WriteLine("I encountered a value I could not convert to a number in the \"# Fragmentation Scans\" column.");
+		    Console.Error.WriteLine(e.Source);
+		    Environment.Exit(1);
+		}
 		// Truncate the double quotes from the Filename field
 		string OutFile = FName.Split('\"')[1];
 		// Truncate the double quotes from the Accession field
@@ -201,6 +208,7 @@ namespace ProFormaFormatter {
 		foreach (string ThisPTM in PTMArray) {
 		    if (ThisPTM.Length > 0) {
 			string[] PTMFields = ThisPTM.Split('(');
+			//Scrub out any non-numeric characters from the string to leave just the position.
 			string PosString = Regex.Replace(PTMFields[0], "[^0-9]","");
 			int FirstLeft = ThisPTM.IndexOf('(')+1;
 			int LastRight = ThisPTM.LastIndexOf(')');
@@ -217,10 +225,19 @@ namespace ProFormaFormatter {
 			UniModName =    ThisPSIMod.OutputName;
 			OutMassAdded += ThisPSIMod.RoundedMass;
 			// When acetylation is positioned on the first side chain, move it to the N-term instead.
-			if (PTMName=="alpha-amino acetylated residue" && PosString == "1") {
+			// ProSight PD 4.2 uses the "N-Term" language, while ProSight PD 4.0 uses the PosString == "1" language.
+			if (PTMFields[0] == "N-Term" || (PTMName=="alpha-amino acetylated residue" && PosString == "1")) {
 			    PosString = "0";
 			}
-			int Pos = Convert.ToInt32(PosString);
+			int Pos = -1;
+			try {
+			    Pos = Convert.ToInt32(PosString);
+			}
+			catch (FormatException e) {
+			    Console.Error.WriteLine("I encountered a value I could not convert to a number in the position of an acetylation.");
+			    Console.Error.WriteLine(e.Source);
+			    Environment.Exit(1);
+			}
 			// Add to the sorted linked list of PTMs for this row of file
 			ThesePTMs.InsertSorted(Pos,UniModName);
 		    }
